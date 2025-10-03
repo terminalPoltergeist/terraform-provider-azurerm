@@ -20,7 +20,6 @@ import (
 	"github.com/hashicorp/terraform-provider-azurerm/internal/tf/pluginsdk"
 	"github.com/hashicorp/terraform-provider-azurerm/internal/tf/validation"
 	"github.com/hashicorp/terraform-provider-azurerm/internal/timeouts"
-	"github.com/hashicorp/terraform-provider-azurerm/utils"
 )
 
 func resourcePolicyVirtualMachineConfigurationAssignment() *pluginsdk.Resource {
@@ -95,6 +94,13 @@ func resourcePolicyVirtualMachineConfigurationAssignmentSchema() map[string]*plu
 						ValidateFunc: validation.IsURLWithScheme([]string{"http", "https"}),
 					},
 
+					"content_managed_identity": {
+						Type:         pluginsdk.TypeString,
+						Description:  "The name of the user assigned identity to use to access the Storage Account, or 'system' to use the virtual machine or Arc-enabled machine identity.",
+						Optional:     true,
+						ValidateFunc: validation.StringIsNotEmpty,
+					},
+
 					"parameter": {
 						Type:     pluginsdk.TypeSet,
 						Optional: true,
@@ -150,8 +156,8 @@ func resourcePolicyVirtualMachineConfigurationAssignmentCreateUpdate(d *pluginsd
 	}
 	guestConfiguration := expandGuestConfigurationAssignment(d.Get("configuration").([]interface{}), id.GuestConfigurationAssignmentName)
 	assignment := guestconfigurationassignments.GuestConfigurationAssignment{
-		Name:     *utils.String(id.GuestConfigurationAssignmentName),
-		Location: utils.String(location.Normalize(d.Get("location").(string))),
+		Name:     *pointer.To(id.GuestConfigurationAssignmentName),
+		Location: pointer.To(location.Normalize(d.Get("location").(string))),
 		Properties: &guestconfigurationassignments.GuestConfigurationAssignmentProperties{
 			GuestConfiguration: guestConfiguration,
 		},
@@ -239,8 +245,8 @@ func expandGuestConfigurationAssignment(input []interface{}, name string) *guest
 	v := input[0].(map[string]interface{})
 
 	result := guestconfigurationassignments.GuestConfigurationNavigation{
-		Name:                   utils.String(name),
-		Version:                utils.String(v["version"].(string)),
+		Name:                   pointer.To(name),
+		Version:                pointer.To(v["version"].(string)),
 		ConfigurationParameter: expandGuestConfigurationAssignmentConfigurationParameters(v["parameter"].(*pluginsdk.Set).List()),
 	}
 
@@ -249,11 +255,15 @@ func expandGuestConfigurationAssignment(input []interface{}, name string) *guest
 	}
 
 	if v, ok := v["content_hash"]; ok {
-		result.ContentHash = utils.String(v.(string))
+		result.ContentHash = pointer.To(v.(string))
 	}
 
 	if v, ok := v["content_uri"]; ok {
-		result.ContentUri = utils.String(v.(string))
+		result.ContentUri = pointer.To(v.(string))
+	}
+
+	if v, ok := v["content_managed_identity"]; ok {
+		result.ContentManagedIdentity = pointer.To(v.(string))
 	}
 
 	return &result
@@ -264,8 +274,8 @@ func expandGuestConfigurationAssignmentConfigurationParameters(input []interface
 	for _, item := range input {
 		v := item.(map[string]interface{})
 		results = append(results, guestconfigurationassignments.ConfigurationParameter{
-			Name:  utils.String(v["name"].(string)),
-			Value: utils.String(v["value"].(string)),
+			Name:  pointer.To(v["name"].(string)),
+			Value: pointer.To(v["value"].(string)),
 		})
 	}
 	return &results
@@ -292,13 +302,18 @@ func flattenGuestConfigurationAssignment(input *guestconfigurationassignments.Gu
 	if input.ContentUri != nil {
 		contentUri = *input.ContentUri
 	}
+	var contentManagedIdentity string
+	if input.ContentManagedIdentity != nil {
+		contentManagedIdentity = *input.ContentManagedIdentity
+	}
 	return []interface{}{
 		map[string]interface{}{
-			"assignment_type": string(assignmentType),
-			"content_hash":    contentHash,
-			"content_uri":     contentUri,
-			"parameter":       flattenGuestConfigurationAssignmentConfigurationParameters(input.ConfigurationParameter),
-			"version":         version,
+			"assignment_type":          string(assignmentType),
+			"content_hash":             contentHash,
+			"content_uri":              contentUri,
+			"content_managed_identity": contentManagedIdentity,
+			"parameter":                flattenGuestConfigurationAssignmentConfigurationParameters(input.ConfigurationParameter),
+			"version":                  version,
 		},
 	}
 }

@@ -155,6 +155,10 @@ resource "azurerm_windows_virtual_machine" "test" {
     azurerm_network_interface.test.id,
   ]
 
+  identity {
+	  type = "SystemAssigned"
+  }
+
   os_disk {
     caching              = "ReadWrite"
     storage_account_type = "Standard_LRS"
@@ -225,10 +229,11 @@ resource "azurerm_policy_virtual_machine_configuration_assignment" "test" {
   virtual_machine_id = azurerm_windows_virtual_machine.test.id
 
   configuration {
-    version         = "1.1.1.1"
-    assignment_type = "ApplyAndAutoCorrect"
-    content_hash    = upper("db4d5cd43c59c756f9beb1f029c858bc341587bf75332288270a26493565f058")
-    content_uri     = "https://testcontenturi/package"
+    version                  = "1.1.1.1"
+    assignment_type          = "ApplyAndAutoCorrect"
+    content_hash             = upper("db4d5cd43c59c756f9beb1f029c858bc341587bf75332288270a26493565f058")
+    content_uri              = "https://testcontenturi/package"
+    content_managed_identity = "system"
 
     parameter {
       name  = "[InstalledApplication]bwhitelistedapp;Name"
@@ -253,6 +258,7 @@ resource "azurerm_policy_virtual_machine_configuration_assignment" "test" {
     assignment_type = "Audit"
     content_hash    = upper("cde01f651f3a3055834753d42d73b44e2a505844ac34f9ccc35d3d6dfffcb2e4")
     content_uri     = "https://testcontenturi/package2"
+	content_managed_identity = "system"
 
     parameter {
       name  = "[InstalledApplication]bwhitelistedapp;Name"
